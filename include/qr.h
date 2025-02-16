@@ -1,6 +1,7 @@
 #ifndef QR_H
 #define QR_H
 
+#include "matrix_ops.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
@@ -8,22 +9,14 @@
 
 #define TOLERANCE 1e-6  // Floating-point tolerance
 
-// Function to return the sign of a number
-double sign(double x);
-
-// Function to compute the 2-norm of a vector (parallelized)
-double norm(double* x, int n);
-
-// Function to allocate a 2D matrix dynamically
-double** allocate_matrix(int rows, int cols);
-
-// Function to free a 2D matrix
-void free_matrix(double** matrix, int rows);
+static inline double sign(double x) {
+    return (x >= 0) ? 1.0 : -1.0;
+}
 
 // Parallelized Householder QR Decomposition
-void householder_qr(double** A, double** Q, double** R, int m, int n);
+void householder_qr(const FEMMatrix* A, FEMMatrix* Q, FEMMatrix* R);
 
 // Solves Ax = b using QR decomposition
-void qr_solve(double** Q, double** R, double* b, double* x, int rows, int cols);
+void qr_solve(const FEMMatrix* Q, const FEMMatrix* R, const FEMVector* b, FEMVector* x);
 
 #endif // QR_H
