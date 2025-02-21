@@ -5,198 +5,215 @@
 
 #define EPSILON 1e-6
 
-// Test matrix initialization and free
-void test_initialize_free_matrix() {
-    printf("\nTesting matrix initialization and free...\n");
-    FEMMatrix A;
-    initialize_matrix(&A, 3, 3);
-
-    for (size_t i = 0; i < A.rows; i++)
-        for (size_t j = 0; j < A.cols; j++)
-            A.values[i * A.cols + j] = i + j + 1.0;
-
-    print_matrix(&A, "Initialized Matrix A");
-
-    free_matrix(&A);
-    printf("Matrix freed successfully.\n");
+void compare_matrices(const FEMMatrix* A, const FEMMatrix* B, const char* test_name) {
+    int equal = 1;
+    for (size_t i = 0; i < A->rows * A->cols; i++) {
+        if (fabs(A->values[i] - B->values[i]) > EPSILON) {
+            equal = 0;
+            break;
+        }
+    }
+    if (equal) {
+        printf("[PASS] %s\n", test_name);
+    }
+    else {
+        printf("[FAIL] %s\n", test_name);
+    }
 }
 
-// Test vector initialization and free
-void test_initialize_free_vector() {
-    printf("\nTesting vector initialization and free...\n");
-    FEMVector v;
-    initialize_vector(&v, 3);
-
-    for (size_t i = 0; i < v.size; i++)
-        v.values[i] = i + 1.0;
-
-    print_vector(&v, "Initialized Vector v");
-
-    free_vector(&v);
-    printf("Vector freed successfully.\n");
+void compare_vectors(const FEMVector* A, const FEMVector* B, const char* test_name) {
+    int equal = 1;
+    for (size_t i = 0; i < A->size; i++) {
+        if (fabs(A->values[i] - B->values[i]) > EPSILON) {
+            equal = 0;
+            break;
+        }
+    }
+    if (equal) {
+        printf("[PASS] %s\n", test_name);
+    }
+    else {
+        printf("[FAIL] %s\n", test_name);
+    }
 }
 
-// Test matrix multiplication
 void test_matrix_multiply() {
-    printf("Testing matrix multiplication...\n");
+    printf("\nTesting matrix_multiply...\n");
 
     FEMMatrix A = { 2, 3, (double[]) { 1, 2, 3, 4, 5, 6 } };
     FEMMatrix B = { 3, 2, (double[]) { 1, 2, 3, 4, 5, 6 } };
     FEMMatrix C;
-    C.rows = A.rows;
-    C.cols = B.cols;
-    C.values = (double*)calloc(C.rows * C.cols, sizeof(double));
+    initialize_matrix(&C, A.rows, B.cols);
 
     matrix_multiply(&A, &B, &C);
-    print_matrix(&C, "Result of AB");
+    print_matrix(&C, "Computed Result of AB");
 
-    free(C.values);
+    FEMMatrix expected = { 2, 2, (double[]) { 22, 28, 49, 64 } };
+    print_matrix(&expected, "Expected Result of AB");
+
+    compare_matrices(&C, &expected, "test_matrix_multiply");
+
+    free_matrix(&C);
 }
 
 // Test matrix transpose
 void test_matrix_transpose() {
-    printf("Testing matrix transpose...\n");
+    printf("\nTesting matrix_transpose...\n");
 
     FEMMatrix A = { 3, 2, (double[]) { 1, 2, 3, 4, 5, 6 } };
     FEMMatrix B;
-    B.rows = A.cols;
-    B.cols = A.rows;
-    B.values = (double*)calloc(B.rows * B.cols, sizeof(double));
+    initialize_matrix(&B, A.cols, A.rows);
 
     matrix_transpose(&A, &B);
-    print_matrix(&B, "Transpose A");
+    print_matrix(&B, "Computed Transpose A");
 
-    free(B.values);
+    FEMMatrix expected = { 2, 3, (double[]) { 1, 3, 5, 2, 4, 6 } };
+    print_matrix(&expected, "Expected Transpose A");
+
+    compare_matrices(&B, &expected, "test_matrix_transpose");
+
+    free_matrix(&B);
 }
 
 // Test compute gradient (J^T * f)
 void test_compute_gradient() {
-    printf("Testing compute gradient (J^T * f)...\n");
+    printf("\nTesting compute_gradient...\n");
 
     FEMMatrix J = { 3, 2, (double[]) { 1, 2, 3, 4, 5, 6 } };
     FEMVector f = { 3, (double[]) { 1, 1, 1 } };
     FEMVector grad;
-    grad.size = J.cols;
-    grad.values = (double*)calloc(grad.size, sizeof(double));
+    initialize_vector(&grad, J.cols);
 
     compute_gradient(&J, &f, &grad);
-    print_vector(&grad, "computed gradient");
+    print_vector(&grad, "Computed Gradient J^T * f");
 
-    free(grad.values);
+    FEMVector expected = { 2, (double[]) { 9, 12 } };
+    print_vector(&expected, "Expected Gradient J^T * f");
+
+    compare_vectors(&grad, &expected, "test_compute_gradient");
+
+    free_vector(&grad);
 }
 
-// Test copy vector
-void test_copy_vector() {
-    printf("\nTesting copy vector...\n");
+// Test vector norm
+void test_vector_norm() {
+    printf("\nTesting vector_norm...\n");
+
+    FEMVector v = { 3, (double[]) { 1, 2, 2 } };
+    double computed = vector_norm(&v);
+    double expected = 3.0;
+
+    printf("Computed Norm: %.3f\n", computed);
+    printf("Expected Norm: %.3f\n", expected);
+
+    if (fabs(computed - expected) < EPSILON)
+        printf("[PASS] test_vector_norm\n");
+    else
+        printf("[FAIL] test_vector_norm\n");
+}
+
+// Test vector scaling
+void test_vector_scale() {
+    printf("\nTesting vector_scale...\n");
 
     FEMVector v;
     initialize_vector(&v, 3);
     v.values[0] = 1.0;
     v.values[1] = 2.0;
     v.values[2] = 3.0;
-
-    FEMVector v_copy;
-    initialize_vector(&v_copy, 3);
-    copy_vector(&v_copy, &v);
-
-    print_vector(&v, "Original Vector v");
-    print_vector(&v_copy, "Copied Vector v_copy");
-
-    free_vector(&v);
-    free_vector(&v_copy);
-}
-
-// Test vector operations
-void test_vector_operations() {
-    printf("Testing vector operations...\n");
-
-    FEMVector v;
-    initialize_vector(&v, 3);
-    v.values[0] = 1.0;
-    v.values[1] = 2.0;
-    v.values[2] = 3.0;
-
-    printf("Original vector:\n");
-    print_vector(&v, "original vector");
-
-    double norm = vector_norm(&v);
-    printf("Vector norm: %.3f\n\n", norm);
 
     vector_scale(&v, 2.0);
-    printf("Vector after scaling by 2:\n");
-    print_vector(&v, "scale by 2");
+    print_vector(&v, "Computed Scaled Vector");
 
-    set_vector_zero(&v);
-    printf("Vector after setting to zero:\n");
-    print_vector(&v, "set zero");
+    FEMVector expected = { 3, (double[]) { 2, 4, 6 } };
+    print_vector(&expected, "Expected Scaled Vector");
+
+    compare_vectors(&v, &expected, "test_vector_scale");
 
     free_vector(&v);
 }
 
 // Test matrix-vector multiplication
 void test_matvec_mult() {
-    printf("Testing matrix-vector multiplication...\n");
-
-    FEMMatrix A = { 3, 3, (double[]) { 1, 2, 3, 4, 5, 6, 7, 8, 9 } };
-    FEMVector v = { 3, (double[]) { 1, 2, 3 } };
-    FEMVector result;
-    result.size = A.rows;
-    result.values = (double*)calloc(result.size, sizeof(double));
-
-    matvec_mult(&A, &v, &result);
-    print_vector(&result, "matrix vector multiplication");
-
-    free(result.values);
-}
-
-// Test matrix-vector transpose multiplication (A^T * v)
-void test_matvec_mult_transpose() {
-    printf("Testing matrix-vector transpose multiplication...\n");
+    printf("\nTesting matvec_mult...\n");
 
     FEMMatrix A = { 3, 3, (double[]) { 1, 2, 3, 4, 5, 6, 7, 8, 9 } };
     FEMVector v = { 3, (double[]) { 1, 1, 1 } };
     FEMVector result;
-    result.size = A.cols;
-    result.values = (double*)calloc(result.size, sizeof(double));
+    initialize_vector(&result, A.rows);
 
-    matvec_mult_transpose(&A, &v, &result);
-    print_vector(&result, "matrix vector transpose multiplication result");
+    matvec_mult(&A, &v, &result);
+    print_vector(&result, "Computed A * v");
 
-    free(result.values);
+    FEMVector expected = { 3, (double[]) { 6, 15, 24 } };
+    print_vector(&expected, "Expected A * v");
+
+    compare_vectors(&result, &expected, "test_matvec_mult");
+
+    free_vector(&result);
 }
+
 
 // Test matrix multiply transpose
 void test_matrix_multiply_transpose() {
-    printf("\nTesting matrix multiply transpose...\n");
+    printf("\nTesting matrix_multiply_transpose...\n");
 
     FEMMatrix A = { 3, 2, (double[]) { 1, 2, 3, 4, 5, 6 } };
-    FEMMatrix B;
-    initialize_matrix(&B, A.cols, A.rows);
-    matrix_transpose(&A, &B);
+    FEMMatrix B = { 4, 2, (double[]) { 7, 8, 9, 10, 11, 12, 13, 14 } };
+    FEMMatrix BT;
+    initialize_matrix(&BT, B.cols, B.rows);
+    matrix_transpose(&B, &BT);
 
     FEMMatrix C;
-    initialize_matrix(&C, A.cols, A.cols);
+    initialize_matrix(&C, A.rows, BT.cols);
     matrix_multiply_transpose(&A, &B, &C);
+    print_matrix(&C, "Computed A * B^T");
 
-    print_matrix(&C, "Result of A * A^T");
+    FEMMatrix expected = {
+        3, 4, (double[]) {
+            23, 29, 35, 41,
+            53, 67, 81, 95,
+            83, 105, 127, 149
+        }
+    };
+    print_matrix(&expected, "Expected A * A^T");
 
-    free_matrix(&B);
+    compare_matrices(&C, &expected, "test_matrix_multiply_transpose");
+
+    free_matrix(&BT);
     free_matrix(&C);
 }
 
-// Main function to run all tests
+void test_matvec_mult_transpose() {
+    printf("\nTesting matvec_mult_transpose...\n");
+
+    FEMMatrix A = { 3, 3, (double[]) { 1, 2, 3, 4, 5, 6, 7, 8, 9 } };
+    FEMVector v = { 3, (double[]) { 1, 1, 1 } };
+    FEMVector result;
+    initialize_vector(&result, A.cols);
+
+    matvec_mult_transpose(&A, &v, &result);
+    print_vector(&result, "Computed A^T * v");
+
+    FEMVector expected = { 3, (double[]) { 12, 15, 18 } };
+    print_vector(&expected, "Expected A^T * v");
+
+    compare_vectors(&result, &expected, "test_matvec_mult_transpose");
+
+    free_vector(&result);
+}
+
+// Run all test cases
 int main() {
-    test_initialize_free_matrix();
-    test_initialize_free_vector();
     test_matrix_multiply();
     test_matrix_transpose();
     test_compute_gradient();
-    test_copy_vector();
-    test_vector_operations();
+    test_vector_norm();
+    test_vector_scale();
     test_matvec_mult();
     test_matvec_mult_transpose();
     test_matrix_multiply_transpose();
 
-    printf("\nAll tests completed successfully.\n");
+    printf("\nAll tests completed.\n");
     return 0;
 }
