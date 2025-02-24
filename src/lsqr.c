@@ -73,6 +73,7 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
         // u = Av-alpha*u_old
         copy_vector(&u_old, &u);
         matvec_mult(A, &v, &u);
+#pragma omp parallel for
         for (int i = 0; i < m; i++) {
             u.values[i] -= alpha* u_old.values[i]; // Prevents u from going to zero
         }
@@ -90,6 +91,7 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
         // v = ATu-beta*v_old
         copy_vector(&v_old, &v);
         matvec_mult_transpose(A, &u, &v);
+#pragma omp parallel for
         for (int i = 0; i < n; i++) {
             v.values[i]  -= beta * v_old.values[i];
         }
@@ -118,11 +120,12 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
             iter, rho, c, s, theta, barrho, phi, barphi);;
 
         // update x and w
+#pragma omp parallel for
         for (int i = 0; i < n; i++) {
             x->values[i] += (phi / rho) * w.values[i];
         }
         print_vector(x, "updated x");
-
+#pragma omp parallel for
         for (int i = 0; i < n; i++) {
             w.values[i] = v.values[i] - (theta / rho) * w.values[i];
         }
@@ -136,6 +139,7 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
         matvec_mult(A, x, &Ax);
 
         double residual_norm = 0.0;
+#pragma omp parallel for reduction(+:residual_norm)
         for (size_t i = 0; i < b->size; i++) {
             double diff = Ax.values[i] - b->values[i];
             residual_norm += diff * diff;
