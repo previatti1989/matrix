@@ -7,8 +7,6 @@
 #include <math.h>
 #include <omp.h>
 
-#define TOLERANCE 1e-6  // Floating-point tolerance
-
 static inline double sign(double x) {
     return (x >= 0) ? 1.0 : -1.0;
 }

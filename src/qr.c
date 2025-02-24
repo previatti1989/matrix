@@ -9,8 +9,8 @@
 void householder_qr(const FEMMatrix* A, FEMMatrix* Q, FEMMatrix* R) {
     if (A->rows != Q->rows || A->cols != Q->cols || A->cols != R->cols || A->cols != R->rows) return;
 
-    size_t m = A->rows;
-    size_t n = A->cols;
+    int m = A->rows;
+    int n = A->cols;
 
     // Copy A into R
     initialize_matrix(R, m, n);
