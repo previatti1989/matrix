@@ -1,4 +1,3 @@
-
 #include "lsqr.h"
 #include "matrix_ops.h"
 #include <math.h>
@@ -8,28 +7,28 @@
 #include <float.h>
 
 void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double tol, int max_iter) {
-    int n = A->rows;
+    int m = A->rows;
+    int n = A->cols;
 
     // initialize vectors
-    FEMVector v, u, v_old, u_old, w, x_old;
+    FEMVector v, u, v_old, u_old, w;
     initialize_vector(&v, n);
-    initialize_vector(&u, n);
+    initialize_vector(&u, m);
     initialize_vector(&w, n);
-    initialize_vector(&x_old, n);
     initialize_vector(&v_old, n);
-    initialize_vector(&u_old, n);
+    initialize_vector(&u_old, m);
 
-    double beta, alpha, rho, rho_old, c, s, theta, phi;
+    double alpha, beta, theta, c, s, rho, phi, barrho, barphi;
+    int exit_flag = 0;
 
-    // initialization ////
-    // u = b/beta ////
-    // compute initial norm of b
+    // initialization 
     double b_norm = vector_norm(b);
     if (b_norm < tol) {
         printf("DEBUG: b is zero! Exiting LSQR early.\n");
         set_vector_zero(x);
         return;
     }
+    // u = b/beta
     copy_vector(&u, b);
     beta = vector_norm(&u);
     if (beta < tol) {
@@ -39,9 +38,8 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
     }
     vector_scale(&u, 1.0 / beta);
     print_vector(&u, "first u");
-    ////
-    // v = ATu/alpha ////
-    // v = ATu
+
+    // v = ATu/alpha 
     matvec_mult_transpose(A, &u, &v);
     alpha = vector_norm(&v);
     if (alpha < tol) {
@@ -51,100 +49,106 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
     }
     vector_scale(&v, 1.0 / alpha);
     print_vector(&v, "first v");
-    ////
+
     // initialize variables
     copy_vector(&w, &v);
     set_vector_zero(x);
-    phi = beta;
-    theta = 0;
-    rho_old = alpha;
-    ////
+    barrho = alpha;
+    barphi = beta;
+    //theta = 0.0;
+    printf("alpha = %f, beta = %f\n", alpha, beta);
+
+    /*double factor = beta / alpha;
+    for (int i = 0; i < n; i++) {
+        x->values[i] += factor * w.values[i];
+    }
+    print_vector(x, "updated x");*/
 
     for (int iter = 0; iter < max_iter; iter++) {
         printf("\n=== Iteration %d ===\n", iter);
         fflush(stdout); // Ensure immediate printing       
 
-        // bidiagonalization ////
+        // bidiagonalization
+
+        // u = Av-alpha*u_old
         copy_vector(&u_old, &u);
-        copy_vector(&v_old, &v);
-        // u = Av-alpha u/beta ////
-        // compute new u = Av
         matvec_mult(A, &v, &u);
-        // compute u_k+1 = Av_k - alpha_k u_k
-        for (int i = 0; i < n; i++) {
+        for (int i = 0; i < m; i++) {
             u.values[i] -= alpha* u_old.values[i]; // Prevents u from going to zero
         }
-        // Compute new beta
         beta = vector_norm(&u);
+        printf("beta = %f\n", beta);
         if (beta < tol) {
             printf("DEBUG: beta too small, Stopping at iteration %d, alpha = %f, beta = %f, phi = %f\n", iter, alpha, beta, phi);
-            break;
+            exit_flag = 1;
         }
-        vector_scale(&u, 1.0 / beta);
-        print_vector(&u, "Normalized u");
-        ////
-        // v = ATu-beta v/alpha //
-        // compute new v = ATu
+        else {
+            vector_scale(&u, 1.0 / beta);
+            print_vector(&u, "normalized u");
+        }
+        
+        // v = ATu-beta*v_old
+        copy_vector(&v_old, &v);
         matvec_mult_transpose(A, &u, &v);
         for (int i = 0; i < n; i++) {
             v.values[i]  -= beta * v_old.values[i];
         }
         alpha = vector_norm(&v);
+        printf("alpha = %f\n", alpha);
         if (alpha < tol) {
             printf("DEBUG: alpha too small, Stopping at iteration %d, alpha = %f, beta = %f, phi = %f\n", iter, alpha, beta, phi);
-            break;
+            exit_flag = 1;
         }
-        vector_scale(&v, 1.0 / alpha);
-        print_vector(&v, "Normalized v");
-        ////
-        
-        // implicit QR factorization ////
-        rho = sqrt(fmax(tol, rho_old * rho_old + beta * beta));
-        if (rho <= tol || isnan(rho)) {
-            printf("DEBUG: rho became zero or NaN! Stopping LSQR.\n");
-            break;
+        else {
+            vector_scale(&v, 1.0 / alpha);
+            print_vector(&v, "normalized v");
         }
-        c = rho_old / rho;
+
+        // implicit QR factorization
+        rho = sqrt(barrho * barrho + beta * beta);
+        c = barrho / rho;
         s = beta / rho;
         theta = s * alpha;
-        rho_old = rho;
-        ////
-        // 
-        // update x //
-        double factor = phi / rho;
+        barrho = -c * alpha;
+        phi = c * barphi;
+        barphi = s * barphi;
+
+        printf("updates\n");
+        printf("iter %d: rho = %f,  c = %f, s = %f, theta = %f, barrho = %f, phi = %f, barphi = %f\n",
+            iter, rho, c, s, theta, barrho, phi, barphi);;
+
+        // update x and w
         for (int i = 0; i < n; i++) {
-            x->values[i] += factor * w.values[i];
+            x->values[i] += (phi / rho) * w.values[i];
         }
         print_vector(x, "updated x");
-        ////
-        // update w //
+
         for (int i = 0; i < n; i++) {
-            w.values[i] = v.values[i] - theta * w.values[i];  
+            w.values[i] = v.values[i] - (theta / rho) * w.values[i];
         }
-        print_vector(&w, "Updated w");
-        ////
+        //double norm_w = vector_norm(&w);
+        //vector_scale(&w, 1.0 / norm_w);
+        print_vector(&w, "updated w");
 
-        phi = c * phi;
+        // compute residual
+        FEMVector Ax;
+        initialize_vector(&Ax, b->size);
+        matvec_mult(A, x, &Ax);
 
-        if (iter % 1 == 0) {
-            FEMVector Ax;
-            initialize_vector(&Ax, b->size);
-            matvec_mult(A, x, &Ax);
-
-            double residual_norm = 0.0;
-            for (size_t i = 0; i < b->size; i++) {
-                double diff = Ax.values[i] - b->values[i];
-                residual_norm += diff * diff;
-            }
-            residual_norm = sqrt(residual_norm);
-            free_vector(&Ax);
-            printf("Iter %d: ||Ax - b|| = %f, factor = %f, alpha = %f, beta = %f, rho = %f, c = %f, s = %f, phi = %f, theta = %f\n",
-                iter, residual_norm, factor, alpha, beta, rho, c, s, phi, theta);
-            print_vector(x, "Current x");
+        double residual_norm = 0.0;
+        for (size_t i = 0; i < b->size; i++) {
+            double diff = Ax.values[i] - b->values[i];
+            residual_norm += diff * diff;
         }
+        residual_norm = sqrt(residual_norm);
+        free_vector(&Ax);
 
-        if (iter > 0 && phi < tol * b_norm) {
-            printf("LSQR Converged: ||Ax - b|| = %f < tol * ||b|| = %f\n", iter, phi, tol * b_norm);
+        printf("iter %d: ||Ax - b|| = %f\n",
+            iter, residual_norm);
+
+        // check convergence
+        if (exit_flag || residual_norm < tol +  tol * b_norm) {
+            printf("LSQR finished, iter = %d, residual = %e, exit_flag = %d\n", iter, residual_norm, exit_flag);
             break;
         }
 
@@ -156,5 +160,4 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
     free_vector(&v);
     free_vector(&v_old);
     free_vector(&w);
-    free_vector(&x_old);
 }

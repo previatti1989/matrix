@@ -121,7 +121,7 @@ void print_vector(const FEMVector* v, const char* name) {
 }
 
 double vector_norm(const FEMVector* v) {
-    if (!v || !v->values || v->size < 0) {
+    if (!v || !v->values || v->size == 0) {
         fprintf(stderr, "ERROR: Invalid vector in vector_norm().\n");
         return 0.0;
     }
@@ -144,6 +144,19 @@ void vector_scale(FEMVector* v, double scalar) {
     for (size_t i = 0; i < v->size; i++) {
         v->values[i] *= scalar;
     }
+}
+
+double dot_product(const FEMVector* a, const FEMVector* b) {
+    if (a->size != b->size) {
+        printf("ERROR: dot_product called with mismatched vector sizes!\n");
+        return 0.0;
+    }
+
+    double sum = 0.0;
+    for (int i = 0; i < a->size; i++) {
+        sum += a->values[i] * b->values[i];
+    }
+    return sum;
 }
 
 void matrix_multiply(const FEMMatrix* A, const FEMMatrix* B, FEMMatrix* C) {
@@ -217,6 +230,10 @@ void compute_gradient(const FEMMatrix* J, const FEMVector* f, FEMVector* grad) {
 }
 
 void matvec_mult(const FEMMatrix* A, const FEMVector* v, FEMVector* result) {
+    if (!A || !v || !result) {
+        fprintf(stderr, "ERROR: Null pointer passed to matvec_mult().\n");
+        return;
+    }
     if (A->cols != v->size || A->rows != result->size) {
         fprintf(stderr, "ERROR: Dimension mismatch in matvec_mult().\n");
         return;
@@ -225,7 +242,10 @@ void matvec_mult(const FEMMatrix* A, const FEMVector* v, FEMVector* result) {
         fprintf(stderr, "ERROR: Output vector is not allocated!\n");
         return;
     }
-
+    if (!A->values || !v->values) {
+        fprintf(stderr, "ERROR: Input matrix or vector is not allocated!\n");
+        return;
+    }
 
 #pragma omp parallel for
     for (size_t i = 0; i < A->rows; i++) {
@@ -243,16 +263,19 @@ void matvec_mult_transpose(const FEMMatrix* A, const FEMVector* v, FEMVector* re
         fprintf(stderr, "ERROR: Null pointer passed to matvec_mult_transpose().\n");
         return;
     }
-
     if (A->rows != v->size || A->cols != result->size) {
         fprintf(stderr, "ERROR: Dimension mismatch in matvec_mult_transpose().\n");
         return;
     }
-
     if (!result->values) {
         printf("ERROR: matvec_mult_transpose - result vector is not allocated!\n");
         return;
     }
+    if (!A->values || !v->values) {
+        fprintf(stderr, "ERROR: Input matrix or vector is not allocated!\n");
+        return;
+    }
+
 #pragma omp parallel for
     for (size_t j = 0; j < A->cols; j++) {
         double sum = 0.0;

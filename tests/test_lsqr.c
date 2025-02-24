@@ -5,119 +5,97 @@
 #include <math.h>
 #include <time.h>
 
-// Function to create a simple test system Ax = b
-void generate_test_system(FEMMatrix* A, FEMVector* b, FEMVector* x_expected, int size) {
-    initialize_matrix(A, size, size);
-    initialize_vector(b, size);
-    initialize_vector(x_expected, size); // Store the expected solution
+void generate_well_conditioned_system(FEMMatrix* A, FEMVector* b, FEMVector* x_expected, int m, int n) {
+    initialize_matrix(A, m, n);
+    initialize_vector(b, m);
+    initialize_vector(x_expected, n);
 
-    srand(42); // Fixed seed for reproducibility
-
-    // Generate a random expected solution x_expected in range [-1,1]
-    for (int i = 0; i < size; i++) {
-        x_expected->values[i] = ((double)rand() / RAND_MAX) * 2.0 - 1.0;
-    }
-
-    // Generate a well-conditioned SPD matrix A using A = M^T * M + diag_shift * I
-    double* M = (double*)malloc(size * size * sizeof(double));  // Temporary matrix
-
-    // Fill M with small random values to control conditioning
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < size; j++) {
-            M[i * size + j] = ((double)rand() / RAND_MAX) * 2.0 - 1.0;  // Random values in [-1,1]
+    // Generate a well-conditioned rectangular matrix A (diagonal dominance)
+    for (int i = 0; i < m; i++) {
+        for (int j = 0; j < n; j++) {
+            double value = ((double)rand() / RAND_MAX) * 2.0 - 1.0;  // Random values in [-1, 1]
+            A->values[i * n + j] = value;
         }
     }
 
-    // Compute A = M^T * M to ensure positive semi-definiteness
-    for (int i = 0; i < size; i++) {
-        for (int j = 0; j < size; j++) {
-            A->values[i * size + j] = 0.0;
-            for (int k = 0; k < size; k++) {
-                A->values[i * size + j] += M[k * size + i] * M[k * size + j];  // M^T * M
+    // Enforce diagonal dominance for stability (helps LSQR convergence)
+    int min_dim = (m < n) ? m : n;  // Get min(m, n)
+    for (int i = 0; i < min_dim; i++) {
+        A->values[i * n + i] += n; // Strengthen diagonal elements
+    }
+
+    for (int i = 0; i < m; i++) {
+        double row_norm = 0.0;
+        for (int j = 0; j < n; j++) {
+            row_norm += A->values[i * n + j] * A->values[i * n + j];
+        }
+        row_norm = sqrt(row_norm);
+        if (row_norm > 1e-12) {  // Avoid division by zero
+            for (int j = 0; j < n; j++) {
+                A->values[i * n + j] /= row_norm;
             }
         }
-        A->values[i * size + i] += 5.0;  // Diagonal shift to ensure strict positive definiteness
     }
 
-    free(M);
-
-    // Compute expected b = A * x_expected
-    matvec_mult(A, x_expected, b);
-}
-
-void generate_2x2_test_system(FEMMatrix* A, FEMVector* b, FEMVector* x_expected) {
-    initialize_matrix(A, 2, 2);
-    initialize_vector(b, 2);
-    initialize_vector(x_expected, 2);
-
-    // Define matrix A
-    A->values[0] = 1.0;  A->values[1] = 2.0;
-    A->values[2] = 3.0;  A->values[3] = 4.0;
-
-    // Define expected solution x_expected
-    x_expected->values[0] = 1.0;
-    x_expected->values[1] = 2.0;
-
-    // Compute b = A * x_expected
-    matvec_mult(A, x_expected, b);
-}
-
-void generate_smooth_decay_system(FEMMatrix* A, FEMVector* b, FEMVector* x_expected) {
-    // Initialize a well-conditioned 3x3 matrix
-    initialize_matrix(A, 3, 3);
-    initialize_vector(b, 3);
-    initialize_vector(x_expected, 3);
-
-    // Define A (smooth singular value decay)
-    A->values[0] = 1.0;  A->values[1] = 0.5;  A->values[2] = 0.2;
-    A->values[3] = 0.5;  A->values[4] = 1.0;  A->values[5] = 0.3;
-    A->values[6] = 0.2;  A->values[7] = 0.3;  A->values[8] = 1.0;
-
-    // Define expected solution
-    x_expected->values[0] = 1.0;
-    x_expected->values[1] = 2.0;
-    x_expected->values[2] = 3.0;
+    // Generate a random expected solution x_expected in range [-1, 1]
+    for (int i = 0; i < n; i++) {
+        x_expected->values[i] = ((double)rand() / RAND_MAX) * 2.0 - 1.0;
+    }
 
     // Compute b = A * x_expected
     matvec_mult(A, x_expected, b);
 }
 
 int main() {
-    int size = 3; // Small test case
+    int m = 4; // Number of rows (overdetermined system)
+    int n = 3; // Number of columns (unknowns)
     double tol = 1e-10;
-    int max_iter = 100;
+    int max_iter = 5;
 
-    FEMMatrix A; 
+    srand(42);
+
+    FEMMatrix A;
     FEMVector b, x, expected_x, Ax;
 
-    initialize_vector(&x, size);
-    initialize_vector(&expected_x, size);
-    initialize_vector(&Ax, size);
+    initialize_vector(&x, n);
+    initialize_vector(&expected_x, n);
+    initialize_vector(&Ax, m);
 
-    generate_smooth_decay_system(&A, &b, &expected_x);
+    // Generate a rectangular system where A is (4x2)
+    generate_well_conditioned_system(&A, &b, &expected_x, m, n);
 
-    // Now Call LSQR Solver
-    printf("\n=== Running LSQR Solver ===\n");
+    print_matrix(&A, "matrix A");
+    print_vector(&b, "vector b computed from Ax");
+
+    // Run LSQR Solver
     set_vector_zero(&x);
-
     lsqr_solver(&A, &b, &x, tol, max_iter);
 
+    // Compute Ax to check if Ax = b
     matvec_mult(&A, &x, &Ax);
 
     // Print computed x
-    print_vector(&x, "Computed x");
+    print_vector(&x, "Computed x (LSQR solution)");
 
     // Print expected x
     print_vector(&expected_x, "Expected x");
 
-    // Compute new residual ||Ax - b||
+    // Compute residual ||Ax - b||
     double residual_norm = 0.0;
-    for (int i = 0; i < size; i++) {
+    for (int i = 0; i < m; i++) {
         residual_norm += (Ax.values[i] - b.values[i]) * (Ax.values[i] - b.values[i]);
     }
     residual_norm = sqrt(residual_norm);
 
-    printf("New LSQR Residual ||Ax - b|| = %f\n", residual_norm);
+    printf("LSQR Residual ||Ax - b|| = %f\n", residual_norm);
+
+    double expected_residual_norm = 0.0;
+    for (int i = 0; i < m; i++) {
+        expected_residual_norm += (b.values[i] - b.values[i]) * (b.values[i] - b.values[i]);  // Expected ||Ax - b|| = 0
+    }
+    expected_residual_norm = sqrt(expected_residual_norm);
+
+    printf("Expected Residual ||Ax - b|| = %e (should be close to 0)\n", expected_residual_norm);
 
     // **Final Pass/Fail Check**
     if (residual_norm < tol) {
@@ -127,12 +105,12 @@ int main() {
         printf(" LSQR test FAILED\n");
     }
 
-
     // Cleanup
     free_vector(&b);
     free_vector(&x);
     free_vector(&Ax);
     free_matrix(&A);
+    free_vector(&expected_x);
 
     return 0;
 }

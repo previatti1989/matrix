@@ -26,6 +26,7 @@ void print_matrix(const FEMMatrix* M, const char* name);
 void print_vector(const FEMVector* v, const char* name);
 double vector_norm(const FEMVector* v);
 void vector_scale(FEMVector* v, double scalar);
+double dot_product(const FEMVector* a, const FEMVector* b);
 
 void matrix_multiply(const FEMMatrix* A, const FEMMatrix* B, FEMMatrix* C);
 void matrix_transpose(const FEMMatrix* A, FEMMatrix* B);
