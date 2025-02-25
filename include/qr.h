@@ -15,6 +15,6 @@ static inline double sign(double x) {
 void householder_qr(const FEMMatrix* A, FEMMatrix* Q, FEMMatrix* R);
 
 // Solves Ax = b using QR decomposition
-void qr_solve(const FEMMatrix* Q, const FEMMatrix* R, const FEMVector* b, FEMVector* x);
+void qr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x);
 
 #endif // QR_H

@@ -242,10 +242,10 @@ void test_qr_solver() {
         b.values[i] = b_values[i];
 
     // Perform QR decomposition
-    householder_qr(&A, &Q, &R);
+    //householder_qr(&A, &Q, &R);
 
     // Solve Ax = b using QR
-    qr_solve(&Q, &R, &b, &x);
+    qr_solver(&A, &b, &x);
 
     print_vector(&x, "Computed Solution x");
 
@@ -305,10 +305,10 @@ void test_qr_solver_case3() {
         b.values[i] = b_values[i];
 
     // Perform QR decomposition
-    householder_qr(&A, &Q, &R);
+    //householder_qr(&A, &Q, &R);
 
     // Solve Ax = b using QR
-    qr_solve(&Q, &R, &b, &x);
+    qr_solver(&A, &b, &x);
 
     print_vector(&x, "Computed Solution x (Case 3)");
 

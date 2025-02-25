@@ -1,10 +1,10 @@
-#include "lsqr.h"
-#include "matrix_ops.h"
 #include <math.h>
 #include <omp.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <float.h>
+#include "lsqr.h"
+#include "matrix_ops.h"
 
 void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double tol, int max_iter) {
     int m = A->rows;

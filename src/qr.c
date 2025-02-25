@@ -95,22 +95,32 @@ void householder_qr(const FEMMatrix* A, FEMMatrix* Q, FEMMatrix* R) {
 }
 
 // Solves Ax = b using QR decomposition
-void qr_solve(const FEMMatrix* Q, const FEMMatrix* R, const FEMVector* b, FEMVector* x) {
+void qr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x) {
+    // Step 1: Allocate space for Q and R
+    FEMMatrix Q, R;
+    initialize_matrix(&Q, A->rows, A->cols);
+    initialize_matrix(&R, A->cols, A->cols);
+
+    // Step 2: Compute Householder QR decomposition (A = QR)
+    householder_qr(A, &Q, &R);
+
+    // Step 3: Compute y = Q^T * b
     FEMVector y;
-    initialize_vector(&y, Q->rows);
+    initialize_vector(&y, Q.rows);
+    matvec_mult_transpose(&Q, b, &y);
 
-    // Compute y = Q^T * b
-    matvec_mult_transpose(Q, b, &y);
-
-    // Back substitution to solve R * x = y
-    for (int i = R->cols - 1; i >= 0; i--) {
+    // Step 4: Solve R * x = y using Back Substitution
+    for (int i = R.cols - 1; i >= 0; i--) {
         double sum = 0.0;
 #pragma omp parallel for reduction(+:sum)
-        for (size_t j = i + 1; j < R->cols; j++) {
-            sum += R->values[i * R->cols + j] * x->values[j];
+        for (size_t j = i + 1; j < R.cols; j++) {
+            sum += R.values[i * R.cols + j] * x->values[j];
         }
-        x->values[i] = (y.values[i] - sum) / R->values[i * R->cols + i];
+        x->values[i] = (y.values[i] - sum) / R.values[i * R.cols + i];
     }
 
+    // Step 5: Free allocated memory
+    free_matrix(&Q);
+    free_matrix(&R);
     free_vector(&y);
 }
