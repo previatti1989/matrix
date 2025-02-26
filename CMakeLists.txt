@@ -23,6 +23,7 @@ set(SOURCES
     ${SRC_DIR}/qr.c
     ${SRC_DIR}/lsqr.c
     ${SRC_DIR}/cg.c
+    ${SRC_DIR}/gmres.c
 )
 
 # Define test source files
@@ -31,6 +32,7 @@ set(TEST_SOURCES
     ${TEST_DIR}/test_qr.c
     ${TEST_DIR}/test_lsqr.c
     ${TEST_DIR}/test_cg.c
+    ${TEST_DIR}/test_gmres.c
 )
 
 # Create the main library
