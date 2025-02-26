@@ -2,8 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "matrix_ops.h"  // Your existing matrix functions
-#include "qr.h"          // QR decomposition for solving least squares
-#include "gmres.h"       // GMRES header
+#include "solvers.h"          // QR decomposition for solving least squares
 
 // Generates a tridiagonal test FEMMatrix
 void generate_test_matrix(FEMMatrix* A) {
@@ -34,7 +33,9 @@ double compute_residual(FEMMatrix* A, FEMVector* x, FEMVector* b) {
 // Main test function
 int main() {
     int n = 5;  // Matrix size
-    int max_iter = 10;  // GMRES iterations
+    int max_iter = 1000;  // GMRES iterations
+    double tol = 1e-6;
+    int k_max = 5;
 
     // Initialize FEM structures
     FEMMatrix A;
@@ -54,7 +55,7 @@ int main() {
 
     // Run GMRES
     printf("Running GMRES test...\n");
-    gmres_solver(&A, &b, &x, max_iter);
+    gmres_solver(&A, &b, &x, tol, max_iter, k_max);
 
     // Compute and print residual
     double res = compute_residual(&A, &x, &b);

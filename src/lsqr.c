@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <float.h>
-#include "lsqr.h"
+#include "solvers.h"
 #include "matrix_ops.h"
 
 void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double tol, int max_iter) {

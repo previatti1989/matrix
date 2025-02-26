@@ -1,4 +1,4 @@
-#include "lsqr.h"
+#include "solvers.h"
 #include "matrix_ops.h"
 #include <stdio.h>
 #include <stdlib.h>

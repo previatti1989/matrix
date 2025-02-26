@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <omp.h>
-#include "qr.h"
+#include "solvers.h"
 #include "matrix_ops.h"
 
 // Parallelized Householder QR Decomposition

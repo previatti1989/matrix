@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <float.h>
 #include "matrix_ops.h"
-#include "cg.h"
+#include "solvers.h"
 
 void cg_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double tol, int max_iter) {
 	int m = A->rows;
