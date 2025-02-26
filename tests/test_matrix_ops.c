@@ -153,7 +153,6 @@ void test_matvec_mult() {
     free_vector(&result);
 }
 
-
 // Test matrix multiply transpose
 void test_matrix_multiply_transpose() {
     printf("\nTesting matrix_multiply_transpose...\n");
@@ -203,6 +202,82 @@ void test_matvec_mult_transpose() {
     free_vector(&result);
 }
 
+void test_convert_to_csr() {
+    printf("\nTesting convert_to_csr...\n");
+
+    // Create a 4x4 test matrix (tridiagonal)
+    FEMMatrix A = { 4, 4, (double[]) {
+        2.0, -1.0,  0.0,  0.0,
+       -1.0,  2.0, -1.0,  0.0,
+        0.0, -1.0,  2.0, -1.0,
+        0.0,  0.0, -1.0,  2.0
+    } };
+
+    // Convert to CSR format
+    FEMMatrix_CSR A_csr;
+    convert_to_csr(&A, &A_csr);
+
+    // Expected CSR data
+    double expected_values[] = { 2.0, -1.0, -1.0, 2.0, -1.0, -1.0, 2.0, -1.0, -1.0, 2.0 };
+    int expected_col_idx[] = { 0, 1, 0, 1, 2, 1, 2, 3, 2, 3 };
+    int expected_row_ptr[] = { 0, 2, 5, 8, 10 };
+
+    // Compare nnz
+    if (A_csr.nnz == 10) {
+        printf("[PASS] CSR nnz matches expected.\n");
+    }
+    else {
+        printf("[FAIL] CSR nnz incorrect. Got %d, expected %d\n", A_csr.nnz, 10);
+    }
+
+    // Compare values array
+    int correct_values = 1;
+    for (int i = 0; i < A_csr.nnz; i++) {
+        if (fabs(A_csr.values[i] - expected_values[i]) > EPSILON) {
+            correct_values = 0;
+            break;
+        }
+    }
+    printf(correct_values ? "[PASS] CSR values array correct.\n" : "[FAIL] CSR values array incorrect.\n");
+
+    // Compare column indices
+    int correct_col_idx = 1;
+    for (int i = 0; i < A_csr.nnz; i++) {
+        if (A_csr.col_idx[i] != expected_col_idx[i]) {
+            correct_col_idx = 0;
+            break;
+        }
+    }
+    printf(correct_col_idx ? "[PASS] CSR column indices correct.\n" : "[FAIL] CSR column indices incorrect.\n");
+
+    // Compare row_ptr
+    int correct_row_ptr = 1;
+    for (int i = 0; i <= A.rows; i++) {
+        if (A_csr.row_ptr[i] != expected_row_ptr[i]) {
+            correct_row_ptr = 0;
+            break;
+        }
+    }
+    printf(correct_row_ptr ? "[PASS] CSR row_ptr array correct.\n" : "[FAIL] CSR row_ptr array incorrect.\n");
+
+    // **Test matrix-vector multiplication consistency**
+    FEMVector x = { 4, (double[]) { 1, 2, 3, 4 } };
+    FEMVector result_dense, result_csr;
+    initialize_vector(&result_dense, 4);
+    initialize_vector(&result_csr, 4);
+
+    matvec_mult(&A, &x, &result_dense);
+    csr_matvec_mult(&A_csr, &x, &result_csr);
+
+    compare_vectors(&result_dense, &result_csr, "CSR matvec_mult consistency");
+
+    free_vector(&result_dense);
+    free_vector(&result_csr);
+    free(A_csr.values);
+    free(A_csr.col_idx);
+    free(A_csr.row_ptr);
+}
+
 // Run all test cases
 int main() {
     test_matrix_multiply();
@@ -213,6 +288,7 @@ int main() {
     test_matvec_mult();
     test_matvec_mult_transpose();
     test_matrix_multiply_transpose();
+    test_convert_to_csr();
 
     printf("\nAll tests completed.\n");
     return 0;

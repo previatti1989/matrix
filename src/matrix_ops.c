@@ -318,6 +318,116 @@ void matrix_multiply_transpose(const FEMMatrix* A, const FEMMatrix* B, FEMMatrix
     }
 }
 
+void convert_to_csr(const FEMMatrix* A, FEMMatrix_CSR* A_csr) {
+    int nnz = 0;
 
+    // Count nonzero elements
+    for (int i = 0; i < A->rows; i++) {
+        for (int j = 0; j < A->cols; j++) {
+            if (fabs(A->values[i * A->cols + j]) > 1e-12) {
+                nnz++;
+            }
+        }
+    }
 
+    // Allocate CSR structure
+    A_csr->rows = A->rows;
+    A_csr->cols = A->cols;
+    A_csr->nnz = nnz;
+    A_csr->values = (double*)malloc(nnz * sizeof(double));
+    A_csr->col_idx = (int*)malloc(nnz * sizeof(int));
+    A_csr->row_ptr = (int*)malloc((A->rows + 1) * sizeof(int));
+
+    int index = 0;
+    A_csr->row_ptr[0] = 0;
+
+    for (int i = 0; i < A->rows; i++) {
+        for (int j = 0; j < A->cols; j++) {
+            double val = A->values[i * A->cols + j];
+            if (fabs(val) > 1e-12) {
+                A_csr->values[index] = val;
+                A_csr->col_idx[index] = j;
+                index++;
+            }
+        }
+        A_csr->row_ptr[i + 1] = index;
+    }
+}
+
+void csr_matvec_mult_transpose(const FEMMatrix_CSR* A, const FEMVector* x, FEMVector* result) {
+    //  Check for NULL pointers
+    if (!A || !x || !result) {
+        printf("[ERROR] csr_matvec_mult_transpose: NULL pointer detected.\n");
+        return;
+    }
+
+    //  Check for dimension mismatch
+    if (A->rows != x->size) {
+        printf("[ERROR] csr_matvec_mult_transpose: Dimension mismatch. Matrix rows = %d, Vector size = %d\n", A->rows, x->size);
+        return;
+    }
+    if (A->cols != result->size) {
+        printf("[ERROR] csr_matvec_mult_transpose: Output vector has incorrect size. Expected %d, got %d\n", A->cols, result->size);
+        return;
+    }
+
+    //  Ensure nonzero elements are valid
+    if (A->nnz <= 0) {
+        printf("[WARNING] csr_matvec_mult_transpose: No nonzero elements in the matrix.\n");
+        return;
+    }
+
+    // Initialize result vector to zero
+    for (int i = 0; i < A->cols; i++) {
+        result->values[i] = 0.0;
+    }
+
+    //  Perform sparse transpose multiplication
+    for (int i = 0; i < A->rows; i++) {
+        for (int j = A->row_ptr[i]; j < A->row_ptr[i + 1]; j++) {
+            int col = A->col_idx[j];
+            if (col >= A->cols || col < 0) {
+                printf("[ERROR] csr_matvec_mult_transpose: Invalid column index %d at row %d\n", col, i);
+                return;
+            }
+            result->values[col] += A->values[j] * x->values[i];
+        }
+    }
+}
+
+void csr_matvec_mult(const FEMMatrix_CSR* A, const FEMVector* x, FEMVector* result) {
+    //  Check for NULL pointers
+    if (!A || !x || !result) {
+        printf("[ERROR] csr_matvec_mult: NULL pointer detected.\n");
+        return;
+    }
+
+    //  Check for dimension mismatch
+    if (A->cols != x->size) {
+        printf("[ERROR] csr_matvec_mult: Dimension mismatch. Matrix cols = %d, Vector size = %d\n", A->cols, x->size);
+        return;
+    }
+    if (A->rows != result->size) {
+        printf("[ERROR] csr_matvec_mult: Output vector has incorrect size. Expected %d, got %d\n", A->rows, result->size);
+        return;
+    }
+
+    //  Ensure nonzero elements are valid
+    if (A->nnz <= 0) {
+        printf("[WARNING] csr_matvec_mult: No nonzero elements in the matrix.\n");
+        return;
+    }
+    for (int i = 0; i < A->rows; i++) {
+        result->values[i] = 0.0; // Reset the output vector
+
+        for (int j = A->row_ptr[i]; j < A->row_ptr[i + 1]; j++) {
+            int col = A->col_idx[j];
+            if (col >= A->cols || col < 0) {
+                printf("[ERROR] csr_matvec_mult: Invalid column index %d at row %d\n", col, i);
+                return;
+            }
+            result->values[i] += A->values[j] * x->values[col];
+        }
+    }
+}
 
