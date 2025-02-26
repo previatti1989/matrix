@@ -3,7 +3,17 @@
 
 #include <stddef.h>
 
-// Structure for a sparse or dense matrix
+// sparse matrix
+typedef struct {
+    int rows;           // Number of rows
+    int cols;           // Number of columns
+    int nnz;            // Number of nonzero elements
+    double* values;     // Array of nonzero values
+    int* col_idx;       // Column indices for each value
+    int* row_ptr;       // Row pointer array (size: rows + 1)
+} FEMMatrix_CSR;
+
+// dense matrix
 typedef struct {
     size_t rows;
     size_t cols;
