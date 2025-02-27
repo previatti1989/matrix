@@ -6,15 +6,16 @@
 #include "solvers.h"
 
 // Arnoldi Process: Generates orthonormal Krylov subspace and Hessenberg matrix
-void arnoldi_iteration(const FEMMatrix* A, FEMVector** V, FEMMatrix* H, int k) {
+void arnoldi_iteration(const FEMMatrix_CSR* A, FEMVector** V, FEMMatrix* H, int k) {
     int n = A->rows;
     FEMVector w;
     initialize_vector(&w, n);
 
     // Compute w = A * V[k]
-    matvec_mult(A, V[k], &w);
+    csr_matvec_mult(A, V[k], &w);
 
     // Gram-Schmidt orthogonalization
+#pragma omp parallel for
     for (int j = 0; j <= k; j++) {
         H->values[j * H->cols + k] = dot_product(V[j], &w);
         for (int i = 0; i < n; i++) {
@@ -35,11 +36,15 @@ void arnoldi_iteration(const FEMMatrix* A, FEMVector** V, FEMMatrix* H, int k) {
 // GMRES solver with Arnoldi and QR
 void gmres_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double tol, int max_iter, int k_max) {
     int n = A->rows;
+    FEMMatrix_CSR A_csr;
+    convert_to_csr(A, &A_csr);
+    
     FEMVector r;
     initialize_vector(&r, n);
 
     // Compute initial residual r0 = b - Ax
-    matvec_mult(A, x, &r);
+    csr_matvec_mult(&A_csr, x, &r);
+#pragma omp parallel for
     for (int i = 0; i < n; i++) {
         r.values[i] = b->values[i] - r.values[i];
     }
@@ -48,6 +53,9 @@ void gmres_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double t
     if (beta < tol) {
         printf("Initial residual is below tolerance. Exiting.\n");
         free_vector(&r);
+        free(A_csr.values);
+        free(A_csr.col_idx);
+        free(A_csr.row_ptr);
         return;
     }
 
@@ -82,7 +90,7 @@ void gmres_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double t
 
         int k;
         for (k = 0; k < k_max && iter < max_iter; k++, iter++) {  // Arnoldi process (inner loop)
-            arnoldi_iteration(A, V, &H, k);
+            arnoldi_iteration(&A_csr, V, &H, k);
         }
 
         // Solve the least squares problem Hy = g using QR
@@ -102,6 +110,7 @@ void gmres_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double t
         qr_solver(&H_reduced, &g_reduced, &y);
 
         // Update solution: x = x + V * y
+#pragma omp parallel for
         for (int i = 0; i < n; i++) {
             for (int j = 0; j < k; j++) {
                 x->values[i] += V[j]->values[i] * y.values[j];
@@ -109,7 +118,8 @@ void gmres_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double t
         }
 
         // Compute new residual
-        matvec_mult(A, x, &r);
+        csr_matvec_mult(&A_csr, x, &r);
+#pragma omp parallel for
         for (int i = 0; i < n; i++) {
             r.values[i] = b->values[i] - r.values[i];
         }
@@ -131,4 +141,8 @@ void gmres_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double t
     free_vector(&g);
     free_vector(&y);
     free_vector(&r);
+
+    free(A_csr.values);
+    free(A_csr.col_idx);
+    free(A_csr.row_ptr);
 }

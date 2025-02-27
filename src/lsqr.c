@@ -10,6 +10,9 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
     int m = A->rows;
     int n = A->cols;
 
+    FEMMatrix_CSR A_csr;
+    convert_to_csr(A, &A_csr);
+
     // initialize vectors
     FEMVector v, u, v_old, u_old, w;
     initialize_vector(&v, n);
@@ -39,7 +42,7 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
     vector_scale(&u, 1.0 / beta);
 
     // v = ATu/alpha 
-    matvec_mult_transpose(A, &u, &v);
+    csr_matvec_mult_transpose(&A_csr, &u, &v);
     alpha = vector_norm(&v);
     if (alpha < tol) {
         printf("DEBUG: Alpha too small, exiting LSQR.\n");
@@ -60,7 +63,7 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
 
         // u = Av-alpha*u_old
         copy_vector(&u_old, &u);
-        matvec_mult(A, &v, &u);
+        csr_matvec_mult(&A_csr, &v, &u);
 #pragma omp parallel for
         for (int i = 0; i < m; i++) {
             u.values[i] -= alpha* u_old.values[i]; // Prevents u from going to zero
@@ -76,7 +79,7 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
         
         // v = ATu-beta*v_old
         copy_vector(&v_old, &v);
-        matvec_mult_transpose(A, &u, &v);
+        csr_matvec_mult_transpose(&A_csr, &u, &v);
 #pragma omp parallel for
         for (int i = 0; i < n; i++) {
             v.values[i]  -= beta * v_old.values[i];
@@ -112,7 +115,7 @@ void lsqr_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double to
         // compute residual
         FEMVector Ax;
         initialize_vector(&Ax, b->size);
-        matvec_mult(A, x, &Ax);
+        csr_matvec_mult(&A_csr, x, &Ax);
 
         double residual_norm = 0.0;
 #pragma omp parallel for reduction(+:residual_norm)

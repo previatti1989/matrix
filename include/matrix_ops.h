@@ -47,7 +47,7 @@ void matvec_mult_transpose(const FEMMatrix* A, const FEMVector* v, FEMVector* re
 void matrix_multiply_transpose(const FEMMatrix* A, const FEMMatrix* B, FEMMatrix* C);
 
 void convert_to_csr(const FEMMatrix* A, FEMMatrix_CSR* A_csr);
-void csr_matvec_mult(const FEMMatrix_CSR* A, const FEMVector* x, FEMVector* result);
+void csr_matvec_mult_transpose(const FEMMatrix_CSR* A, const FEMVector* x, FEMVector* result);
 void csr_matvec_mult(const FEMMatrix_CSR* A, const FEMVector* x, FEMVector* result);
 
 

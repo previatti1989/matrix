@@ -7,8 +7,10 @@
 #include "solvers.h"
 
 void cg_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double tol, int max_iter) {
-	int m = A->rows;
-	int n = A->cols;
+    int n = A->rows;
+    
+    FEMMatrix_CSR A_csr;
+    convert_to_csr(A, &A_csr);
 
     // initialize vectors
     FEMVector r, p, Ap;
@@ -17,7 +19,7 @@ void cg_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double tol,
     initialize_vector(&p, n);
     initialize_vector(&Ap, n);
 
-    matvec_mult(A, x, &r);
+    csr_matvec_mult(&A_csr, x, &r);
 #pragma omp parallel for
     for (int i = 0; i < n; i++) {
         r.values[i] = b->values[i] - r.values[i];
@@ -28,7 +30,7 @@ void cg_solver(const FEMMatrix* A, const FEMVector* b, FEMVector* x, double tol,
     double rs_new;
 
     for (int k = 0; k < max_iter; k++) {
-        matvec_mult(A, &p, &Ap); // Compute Ap_k
+        csr_matvec_mult(&A_csr, &p, &Ap); // Compute Ap_k
 
         double alpha = rs_old / dot_product(&p, &Ap);
 
