@@ -322,7 +322,6 @@ void convert_to_csr(const FEMMatrix* A, FEMMatrix_CSR* A_csr) {
     int nnz = 0;
 
     // Count nonzero elements
-#pragma omp parallel for reduction(+:nnz)
     for (int i = 0; i < A->rows; i++) {
         for (int j = 0; j < A->cols; j++) {
             if (fabs(A->values[i * A->cols + j]) > 1e-12) {
@@ -342,7 +341,6 @@ void convert_to_csr(const FEMMatrix* A, FEMMatrix_CSR* A_csr) {
     int index = 0;
     A_csr->row_ptr[0] = 0;
 
-#pragma omp parallel for
     for (int i = 0; i < A->rows; i++) {
         for (int j = 0; j < A->cols; j++) {
             double val = A->values[i * A->cols + j];
@@ -380,14 +378,12 @@ void csr_matvec_mult_transpose(const FEMMatrix_CSR* A, const FEMVector* x, FEMVe
     }
 
     // Initialize result vector to zero
-#pragma omp parallel for
     for (int i = 0; i < A->cols; i++) {
         result->values[i] = 0.0;
     }
 
     int invalid_flag = 0;
     //  Perform sparse transpose multiplication
-#pragma omp parallel for
     for (int i = 0; i < A->rows; i++) {
         for (int j = A->row_ptr[i]; j < A->row_ptr[i + 1]; j++) {
             int col = A->col_idx[j];
@@ -395,7 +391,6 @@ void csr_matvec_mult_transpose(const FEMMatrix_CSR* A, const FEMVector* x, FEMVe
                 printf("[ERROR] csr_matvec_mult_transpose: Invalid column index %d at row %d\n", col, i);
                 invalid_flag = 1;
             }
-#pragma omp atomic
             result->values[col] += A->values[j] * x->values[i];
         }
     }
@@ -429,7 +424,6 @@ void csr_matvec_mult(const FEMMatrix_CSR* A, const FEMVector* x, FEMVector* resu
     }
 
     int invalid_flag = 0;
-#pragma omp parallel for
     for (int i = 0; i < A->rows; i++) {
         result->values[i] = 0.0; // Reset the output vector
 
@@ -439,7 +433,6 @@ void csr_matvec_mult(const FEMMatrix_CSR* A, const FEMVector* x, FEMVector* resu
                 printf("[ERROR] csr_matvec_mult: Invalid column index %d at row %d\n", col, i);
                 invalid_flag = 1;
             }
-#pragma omp atomic
             result->values[i] += A->values[j] * x->values[col];
         }
     }
